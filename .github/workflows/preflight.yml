@@ -26,7 +26,7 @@ jobs:
         run: |
           $dism = Get-Command dism.exe -ErrorAction Stop
           Write-Host "DISM encontrado: $($dism.Source)"
-          $output = & $dism.Source /English /Get-CurrentEdition 2>&1
+          $output = & $dism.Source /English /Online /Get-CurrentEdition 2>&1
           $exitCode = $LASTEXITCODE
           $output | ForEach-Object { Write-Host $_ }
           if ($exitCode -ne 0) {
