@@ -1,0 +1,56 @@
+name: Inventario da ISO Windows 10
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  inventory:
+    name: Baixar, verificar e inventariar ISO
+    runs-on: windows-latest
+    steps:
+      - name: Baixar repositorio
+        uses: actions/checkout@v4
+
+      - name: Validar URL oficial
+        shell: pwsh
+        env:
+          WINDOWS_ISO_URL: ${{ secrets.WINDOWS_ISO_URL }}
+        run: |
+          if ([string]::IsNullOrWhiteSpace($env:WINDOWS_ISO_URL)) {
+            throw "Adicione o segredo WINDOWS_ISO_URL nas configuracoes do repositorio."
+          }
+          $uri = [Uri]$env:WINDOWS_ISO_URL
+          if ($uri.Scheme -ne "https" -or $uri.Host -notlike "*.microsoft.com") {
+            throw "A URL precisa usar HTTPS e um dominio Microsoft."
+          }
+          Write-Host "URL HTTPS de dominio Microsoft validada. O endereco sera mantido oculto."
+
+      - name: Baixar ISO da Microsoft
+        shell: pwsh
+        env:
+          WINDOWS_ISO_URL: ${{ secrets.WINDOWS_ISO_URL }}
+        run: |
+          $iso = Join-Path $env:RUNNER_TEMP "Windows10-22H2-ptBR-x86.iso"
+          curl.exe --fail --location --silent --show-error --retry 3 --retry-delay 5 --connect-timeout 30 --output $iso $env:WINDOWS_ISO_URL
+          if ($LASTEXITCODE -ne 0) {
+            throw "Falha ao baixar a ISO. Gere um novo link na pagina oficial da Microsoft e atualize o segredo."
+          }
+          Write-Host "Download concluido."
+
+      - name: Verificar hash e inventariar edicoes
+        shell: pwsh
+        run: |
+          $iso = Join-Path $env:RUNNER_TEMP "Windows10-22H2-ptBR-x86.iso"
+          $report = Join-Path $env:RUNNER_TEMP "inventario-iso.txt"
+          ./scripts/02-inventariar-iso.ps1 -IsoPath $iso -ReportPath $report
+
+      - name: Publicar relatorio
+        uses: actions/upload-artifact@v4
+        with:
+          name: inventario-windows10-22h2-x86
+          path: ${{ runner.temp }}/inventario-iso.txt
+          if-no-files-found: error
+          retention-days: 7
