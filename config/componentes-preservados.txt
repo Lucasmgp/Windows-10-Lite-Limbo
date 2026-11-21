@@ -1,0 +1,25 @@
+# Componentes e capacidades a preservar nesta primeira versão
+# Lista de referência; não representa comandos automáticos de remoção.
+
+Windows Explorer e shell básico
+Gerenciador de Tarefas
+Prompt de Comando (CMD)
+Windows PowerShell
+Windows Installer (MSI)
+.NET Framework 3.5 e .NET Framework 4.x
+Bibliotecas Visual C++ e componentes de runtime
+DirectX e componentes gráficos básicos
+WMI (Windows Management Instrumentation)
+DISM, SFC e servicing stack
+Windows Update e mecanismos de atualização
+Microsoft Defender e Firewall do Windows
+TCP/IP, DNS, DHCP e cliente de rede
+Suporte a USB e armazenamento
+Suporte a teclado, mouse e dispositivos HID
+Áudio e vídeo básicos
+Fontes e suporte ao idioma Português (Brasil)
+Windows Recovery Environment (WinRE), quando disponível
+Microsoft Store e dependências UWP, enquanto a compatibilidade não for avaliada
+Tarefas e serviços necessários para instalação, ativação, manutenção e recuperação
+
+REGRA: não remover serviços, pacotes ou recursos apenas pelo nome. Identificar dependências e testar cada alteração.
