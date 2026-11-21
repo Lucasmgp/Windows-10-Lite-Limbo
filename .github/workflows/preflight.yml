@@ -21,15 +21,18 @@ jobs:
           Get-ComputerInfo | Select-Object WindowsProductName, WindowsVersion, OsArchitecture
           Get-PSDrive -Name C | Select-Object Name, Used, Free
 
-      - name: Verificar ferramentas de manutencao
+      - name: Verificar DISM
         shell: pwsh
         run: |
           $dism = Get-Command dism.exe -ErrorAction Stop
           Write-Host "DISM encontrado: $($dism.Source)"
-          & dism.exe /English /? | Select-Object -First 5
-          if ($LASTEXITCODE -ne 0) {
-            throw "DISM nao respondeu corretamente."
+          $output = & $dism.Source /English /Get-CurrentEdition 2>&1
+          $exitCode = $LASTEXITCODE
+          $output | ForEach-Object { Write-Host $_ }
+          if ($exitCode -ne 0) {
+            throw "DISM retornou codigo de erro: $exitCode"
           }
+          Write-Host "DISM respondeu corretamente." -ForegroundColor Green
 
       - name: Registrar estrutura do projeto
         shell: pwsh
