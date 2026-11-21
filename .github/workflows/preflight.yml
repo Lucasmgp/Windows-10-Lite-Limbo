@@ -1,0 +1,39 @@
+name: Preflight - Windows 10 Lite Limbo
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  preflight:
+    name: Verificar ambiente Windows
+    runs-on: windows-latest
+    steps:
+      - name: Baixar repositorio
+        uses: actions/checkout@v4
+
+      - name: Identificar ambiente
+        shell: pwsh
+        run: |
+          Write-Host "Windows runner pronto para as etapas de inventario."
+          Get-ComputerInfo | Select-Object WindowsProductName, WindowsVersion, OsArchitecture
+          Get-PSDrive -Name C | Select-Object Name, Used, Free
+
+      - name: Verificar ferramentas de manutencao
+        shell: pwsh
+        run: |
+          $dism = Get-Command dism.exe -ErrorAction Stop
+          Write-Host "DISM encontrado: $($dism.Source)"
+          & dism.exe /English /? | Select-Object -First 5
+          if ($LASTEXITCODE -ne 0) {
+            throw "DISM nao respondeu corretamente."
+          }
+
+      - name: Registrar estrutura do projeto
+        shell: pwsh
+        run: |
+          Get-ChildItem -Force
+          Get-ChildItem -Recurse scripts, config
+          Write-Host "Preflight concluido. Nenhuma ISO foi baixada ou modificada."
