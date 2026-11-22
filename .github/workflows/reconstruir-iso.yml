@@ -1,0 +1,74 @@
+name: Reconstruir ISO Windows 10 Home Lite
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  actions: read
+
+jobs:
+  rebuild-iso:
+    runs-on: windows-latest
+    timeout-minutes: 180
+    steps:
+      - name: Baixar repositorio
+        uses: actions/checkout@v4
+
+      - name: Baixar WIM aprovado da execucao anterior
+        uses: actions/download-artifact@v4
+        with:
+          name: windows10-home-lite-appx-removidos
+          repository: ${{ github.repository }}
+          run-id: 45029472045
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          path: ${{ runner.temp }}/appx-artifact
+
+      - name: Validar e preparar arquivos
+        shell: pwsh
+        env:
+          WINDOWS_ISO_URL: ${{ secrets.WINDOWS_ISO_URL }}
+        run: |
+          if ([string]::IsNullOrWhiteSpace($env:WINDOWS_ISO_URL)) { throw "Segredo WINDOWS_ISO_URL ausente ou expirado." }
+          $uri = [Uri]$env:WINDOWS_ISO_URL
+          if ($uri.Scheme -ne "https" -or $uri.Host -notlike "*.microsoft.com") { throw "URL fora do dominio HTTPS Microsoft." }
+          $iso = Join-Path $env:RUNNER_TEMP "Windows10-original.iso"
+          curl.exe --fail --location --silent --show-error --retry 3 --retry-delay 5 --output $iso $env:WINDOWS_ISO_URL
+          if ($LASTEXITCODE -ne 0) { throw "Download da ISO falhou; renove WINDOWS_ISO_URL no site Microsoft." }
+          $wim = Get-ChildItem (Join-Path $env:RUNNER_TEMP "appx-artifact") -Filter "install-home-lite.wim" -Recurse | Select-Object -First 1
+          if (-not $wim) { throw "WIM modificado nao encontrado no artifact." }
+          "ISO_PATH=$iso" | Out-File -FilePath $env:GITHUB_ENV -Append
+          "WIM_PATH=$($wim.FullName)" | Out-File -FilePath $env:GITHUB_ENV -Append
+
+      - name: Instalar ferramenta oficial oscdimg (Windows ADK Deployment Tools)
+        shell: pwsh
+        run: |
+          $setup = Join-Path $env:RUNNER_TEMP "adksetup.exe"
+          $url = "https://download.microsoft.com/download/8e0c0f5a-abb5-4358-a51b-168eb40b1590/adk/adksetup.exe"
+          curl.exe --fail --location --silent --show-error --retry 3 --output $setup $url
+          if ($LASTEXITCODE -ne 0) { throw "Download do instalador oficial do Windows ADK falhou." }
+          $install = Join-Path $env:RUNNER_TEMP "ADK"
+          $p = Start-Process -FilePath $setup -ArgumentList @("/quiet","/installpath",$install,"/features","OptionId.DeploymentTools") -Wait -PassThru
+          if ($p.ExitCode -ne 0) { throw "Instalacao do ADK falhou: $($p.ExitCode)" }
+          $oscdimg = Join-Path $install "Assessment and Deployment Kit\Deployment Tools\amd64\Oscdimg\oscdimg.exe"
+          if (-not (Test-Path -LiteralPath $oscdimg)) { throw "oscdimg.exe nao encontrado apos instalacao do ADK." }
+          "OSCDIMG_PATH=$oscdimg" | Out-File -FilePath $env:GITHUB_ENV -Append
+
+      - name: Reconstruir e verificar ISO
+        shell: pwsh
+        run: |
+          $out = Join-Path $env:RUNNER_TEMP "Windows10-Home-Lite-22H2-x86-ptBR.iso"
+          $work = Join-Path $env:RUNNER_TEMP "iso-rebuild-work"
+          ./scripts/06-reconstruir-iso.ps1 -IsoPath $env:ISO_PATH -ModifiedWimPath $env:WIM_PATH -OutputIsoPath $out -OscdimgPath $env:OSCDIMG_PATH -WorkDirectory $work
+
+      - name: Publicar ISO e relatorios
+        uses: actions/upload-artifact@v4
+        with:
+          name: Windows10-Home-Lite-22H2-x86-ptBR
+          path: |
+            ${{ runner.temp }}/Windows10-Home-Lite-22H2-x86-ptBR.iso
+            ${{ runner.temp }}/iso-rebuild-work/LEIA-ME-ISO-FINAL.txt
+            ${{ runner.temp }}/iso-rebuild-work/validacao-wim-iso-final.txt
+          if-no-files-found: error
+          retention-days: 3
+          compression-level: 0
