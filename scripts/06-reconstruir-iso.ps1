@@ -36,8 +36,8 @@ try {
 
     $stagedWim = Join-Path $stage "sources\install.wim"
     $stagedEsd = Join-Path $stage "sources\install.esd"
-    if (Test-Path -LiteralPath $stagedWim) { Remove-Item -LiteralPath $stagedWim -Force }
-    if (Test-Path -LiteralPath $stagedEsd) { Remove-Item -LiteralPath $stagedEsd -Force }
+    if (Test-Path -LiteralPath $stagedWim) { (Get-Item -LiteralPath $stagedWim).Attributes = "Normal"; Remove-Item -LiteralPath $stagedWim -Force }
+    if (Test-Path -LiteralPath $stagedEsd) { (Get-Item -LiteralPath $stagedEsd).Attributes = "Normal"; Remove-Item -LiteralPath $stagedEsd -Force }
     Copy-Item -LiteralPath $ModifiedWimPath -Destination $stagedWim
     if (-not (Test-Path -LiteralPath $stagedWim)) { throw "install.wim nao foi copiado para a estrutura ISO." }
 
@@ -46,6 +46,8 @@ try {
     Remove-Item -LiteralPath $IsoPath -Force
     Remove-Item -LiteralPath $ModifiedWimPath -Force
 
+    $bootBios = Join-Path $stage "boot\\etfsboot.com"
+    $bootEfi = Join-Path $stage "efi\\microsoft\\boot\\efisys.bin"
     $bootArg = "-bootdata:2#p0,e,b$bootBios#pEF,e,b$bootEfi"
     $args = @("-m","-o","-u2","-udfver102",$bootArg,$stage,$OutputIsoPath)
     $proc = Start-Process -FilePath $OscdimgPath -ArgumentList $args -Wait -PassThru -NoNewWindow
