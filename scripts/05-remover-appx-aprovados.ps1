@@ -61,7 +61,7 @@ try {
     $isoMounted = $true
     $volume = $disk | Get-Volume
     if (-not $volume.DriveLetter) { throw "Unidade da ISO nao identificada." }
-    $root = "$($volume.DriveLetter):\\"
+    $root = "$($volume.DriveLetter):\"
     $sourceWim = Join-Path $root "sources\\install.wim"
     $sourceEsd = Join-Path $root "sources\\install.esd"
     if (Test-Path -LiteralPath $sourceWim) { $sourceImage = $sourceWim }
