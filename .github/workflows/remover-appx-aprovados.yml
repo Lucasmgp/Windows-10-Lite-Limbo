@@ -1,0 +1,59 @@
+name: Remover 14 aplicativos aprovados - Windows 10 Lite
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build-home:
+    name: Criar WIM Home com os 14 Appx removidos
+    runs-on: windows-latest
+    timeout-minutes: 180
+    steps:
+      - name: Baixar repositorio
+        uses: actions/checkout@v4
+
+      - name: Validar URL oficial
+        shell: pwsh
+        env:
+          WINDOWS_ISO_URL: ${{ secrets.WINDOWS_ISO_URL }}
+        run: |
+          if ([string]::IsNullOrWhiteSpace($env:WINDOWS_ISO_URL)) {
+            throw "Adicione ou atualize o segredo WINDOWS_ISO_URL."
+          }
+          $uri = [Uri]$env:WINDOWS_ISO_URL
+          if ($uri.Scheme -ne "https" -or $uri.Host -notlike "*.microsoft.com") {
+            throw "A URL precisa usar HTTPS e dominio Microsoft."
+          }
+          Write-Host "URL Microsoft validada; endereco oculto."
+
+      - name: Baixar e validar ISO
+        shell: pwsh
+        env:
+          WINDOWS_ISO_URL: ${{ secrets.WINDOWS_ISO_URL }}
+        run: |
+          $iso = Join-Path $env:RUNNER_TEMP "Windows10-22H2-ptBR-x86.iso"
+          curl.exe --fail --location --silent --show-error --retry 3 --retry-delay 5 --connect-timeout 30 --output $iso $env:WINDOWS_ISO_URL
+          if ($LASTEXITCODE -ne 0) {
+            throw "Falha no download. O link Microsoft pode ter expirado; atualize WINDOWS_ISO_URL."
+          }
+
+      - name: Remover somente os 14 aplicativos aprovados
+        shell: pwsh
+        run: |
+          $iso = Join-Path $env:RUNNER_TEMP "Windows10-22H2-ptBR-x86.iso"
+          $output = Join-Path $env:RUNNER_TEMP "windows10-home-lite-output"
+          ./scripts/05-remover-appx-aprovados.ps1 -IsoPath $iso -OutputDirectory $output
+
+      - name: Publicar WIM modificado e relatorios
+        uses: actions/upload-artifact@v4
+        with:
+          name: windows10-home-lite-appx-removidos
+          path: |
+            ${{ runner.temp }}/windows10-home-lite-output/install-home-lite.wim
+            ${{ runner.temp }}/windows10-home-lite-output/relatorios/
+          if-no-files-found: error
+          retention-days: 3
+          compression-level: 0
