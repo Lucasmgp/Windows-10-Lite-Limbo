@@ -18,7 +18,7 @@ jobs:
       - name: Validar URL oficial
         shell: pwsh
         env:
-          WINDOWS_ISO_URL: \${{ secrets.WINDOWS_ISO_URL }}
+          WINDOWS_ISO_URL: ${{ secrets.WINDOWS_ISO_URL }}
         run: |
           if ([string]::IsNullOrWhiteSpace($env:WINDOWS_ISO_URL)) {
             throw "Adicione o segredo WINDOWS_ISO_URL nas configuracoes do repositorio."
@@ -32,7 +32,7 @@ jobs:
       - name: Baixar ISO da Microsoft
         shell: pwsh
         env:
-          WINDOWS_ISO_URL: \${{ secrets.WINDOWS_ISO_URL }}
+          WINDOWS_ISO_URL: ${{ secrets.WINDOWS_ISO_URL }}
         run: |
           $iso = Join-Path $env:RUNNER_TEMP "Windows10-22H2-ptBR-x86.iso"
           curl.exe --fail --location --silent --show-error --retry 3 --retry-delay 5 --connect-timeout 30 --output $iso $env:WINDOWS_ISO_URL
@@ -52,6 +52,6 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: inventario-detalhado-windows10-home-x86
-          path: \${{ runner.temp }}/inventario-home/
+          path: ${{ runner.temp }}/inventario-home/
           if-no-files-found: error
           retention-days: 7
