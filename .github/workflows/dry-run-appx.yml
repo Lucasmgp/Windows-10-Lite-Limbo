@@ -1,0 +1,56 @@
+name: Simulacao de remocao de aplicativos - Dry Run
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  dry-run:
+    name: Simular candidatos sem alterar a ISO
+    runs-on: windows-latest
+    timeout-minutes: 90
+    steps:
+      - name: Baixar repositorio
+        uses: actions/checkout@v4
+
+      - name: Validar URL oficial
+        shell: pwsh
+        env:
+          WINDOWS_ISO_URL: ${{ secrets.WINDOWS_ISO_URL }}
+        run: |
+          if ([string]::IsNullOrWhiteSpace($env:WINDOWS_ISO_URL)) {
+            throw "Adicione ou atualize o segredo WINDOWS_ISO_URL."
+          }
+          $uri = [Uri]$env:WINDOWS_ISO_URL
+          if ($uri.Scheme -ne "https" -or $uri.Host -notlike "*.microsoft.com") {
+            throw "A URL precisa usar HTTPS e dominio Microsoft."
+          }
+          Write-Host "URL Microsoft validada; endereco oculto."
+
+      - name: Baixar ISO
+        shell: pwsh
+        env:
+          WINDOWS_ISO_URL: ${{ secrets.WINDOWS_ISO_URL }}
+        run: |
+          $iso = Join-Path $env:RUNNER_TEMP "Windows10-22H2-ptBR-x86.iso"
+          curl.exe --fail --location --silent --show-error --retry 3 --retry-delay 5 --connect-timeout 30 --output $iso $env:WINDOWS_ISO_URL
+          if ($LASTEXITCODE -ne 0) {
+            throw "Falha no download. O link Microsoft pode ter expirado; atualize WINDOWS_ISO_URL."
+          }
+
+      - name: Executar simulacao somente leitura
+        shell: pwsh
+        run: |
+          $iso = Join-Path $env:RUNNER_TEMP "Windows10-22H2-ptBR-x86.iso"
+          $reports = Join-Path $env:RUNNER_TEMP "dry-run-appx"
+          ./scripts/04-simular-remocao-appx.ps1 -IsoPath $iso -ReportDirectory $reports
+
+      - name: Publicar somente relatorios
+        uses: actions/upload-artifact@v4
+        with:
+          name: dry-run-appx-windows10-home-x86
+          path: ${{ runner.temp }}/dry-run-appx/
+          if-no-files-found: error
+          retention-days: 7
