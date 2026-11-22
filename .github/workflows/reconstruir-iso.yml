@@ -40,18 +40,32 @@ jobs:
           "ISO_PATH=$iso" | Out-File -FilePath $env:GITHUB_ENV -Append
           "WIM_PATH=$($wim.FullName)" | Out-File -FilePath $env:GITHUB_ENV -Append
 
-      - name: Instalar ferramenta oficial oscdimg (Windows ADK Deployment Tools)
+      - name: Localizar ou instalar oscdimg oficial
         shell: pwsh
         run: |
-          $setup = Join-Path $env:RUNNER_TEMP "adksetup.exe"
-          $url = "https://download.microsoft.com/download/8e0c0f5a-abb5-4358-a51b-168eb40b1590/adk/adksetup.exe"
-          curl.exe --fail --location --silent --show-error --retry 3 --output $setup $url
-          if ($LASTEXITCODE -ne 0) { throw "Download do instalador oficial do Windows ADK falhou." }
-          $install = Join-Path $env:RUNNER_TEMP "ADK"
-          $p = Start-Process -FilePath $setup -ArgumentList @("/quiet","/installpath",$install,"/features","OptionId.DeploymentTools") -Wait -PassThru
-          if ($p.ExitCode -ne 0) { throw "Instalacao do ADK falhou: $($p.ExitCode)" }
-          $oscdimg = Join-Path $install "Assessment and Deployment Kit\Deployment Tools\amd64\Oscdimg\oscdimg.exe"
-          if (-not (Test-Path -LiteralPath $oscdimg)) { throw "oscdimg.exe nao encontrado apos instalacao do ADK." }
+          $candidates = @(
+            "C:\Program Files (x86)\Windows Kits\10\Assessment and Deployment Kit\Deployment Tools\amd64\Oscdimg\oscdimg.exe",
+            "C:\Program Files (x86)\Windows Kits\10\Assessment and Deployment Kit\Deployment Tools\x86\Oscdimg\oscdimg.exe"
+          )
+          $oscdimg = $candidates | Where-Object { Test-Path -LiteralPath $_ } | Select-Object -First 1
+          if (-not $oscdimg) {
+            $setup = Join-Path $env:RUNNER_TEMP "adksetup.exe"
+            $url = "https://download.microsoft.com/download/8e0c0f5a-abb5-4358-a51b-168eb40b1590/adk/adksetup.exe"
+            curl.exe --fail --location --silent --show-error --retry 3 --output $setup $url
+            if ($LASTEXITCODE -ne 0) { throw "Download do instalador oficial do Windows ADK falhou." }
+            $arguments = "/quiet /norestart /ceip off /features OptionId.DeploymentTools"
+            $p = Start-Process -FilePath $setup -ArgumentList $arguments -Wait -PassThru -NoNewWindow
+            if ($p.ExitCode -ne 0) {
+              Get-ChildItem "$env:TEMP" -Filter "*adk*" -Recurse -ErrorAction SilentlyContinue | Select-Object -First 30 FullName
+              throw "Instalacao do ADK falhou: codigo $($p.ExitCode)."
+            }
+            $oscdimg = $candidates | Where-Object { Test-Path -LiteralPath $_ } | Select-Object -First 1
+          }
+          if (-not $oscdimg) {
+            $oscdimg = Get-ChildItem "C:\Program Files (x86)\Windows Kits" -Filter "oscdimg.exe" -Recurse -ErrorAction SilentlyContinue | Select-Object -ExpandProperty FullName -First 1
+          }
+          if (-not $oscdimg) { throw "oscdimg.exe nao encontrado no runner nem apos instalar o ADK." }
+          Write-Host "Ferramenta localizada: $oscdimg"
           "OSCDIMG_PATH=$oscdimg" | Out-File -FilePath $env:GITHUB_ENV -Append
 
       - name: Reconstruir e verificar ISO
