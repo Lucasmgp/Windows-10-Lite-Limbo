@@ -46,8 +46,8 @@ try {
     Remove-Item -LiteralPath $IsoPath -Force
     Remove-Item -LiteralPath $ModifiedWimPath -Force
 
-    $bootBios = Join-Path $stage "boot\\etfsboot.com"
-    $bootEfi = Join-Path $stage "efi\\microsoft\\boot\\efisys.bin"
+    $bootBios = Join-Path $stage "boot\etfsboot.com"
+    $bootEfi = Join-Path $stage "efi\microsoft\boot\efisys.bin"
     $bootArg = "-bootdata:2#p0,e,b$bootBios#pEF,e,b$bootEfi"
     $args = @("-m","-o","-u2","-udfver102",$bootArg,$stage,$OutputIsoPath)
     $proc = Start-Process -FilePath $OscdimgPath -ArgumentList $args -Wait -PassThru -NoNewWindow
