@@ -1,0 +1,57 @@
+name: Inventario detalhado - Windows 10 Home
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  inventory-home:
+    name: Analisar componentes da edicao Home
+    runs-on: windows-latest
+    timeout-minutes: 90
+    steps:
+      - name: Baixar repositorio
+        uses: actions/checkout@v4
+
+      - name: Validar URL oficial
+        shell: pwsh
+        env:
+          WINDOWS_ISO_URL: \${{ secrets.WINDOWS_ISO_URL }}
+        run: |
+          if ([string]::IsNullOrWhiteSpace($env:WINDOWS_ISO_URL)) {
+            throw "Adicione o segredo WINDOWS_ISO_URL nas configuracoes do repositorio."
+          }
+          $uri = [Uri]$env:WINDOWS_ISO_URL
+          if ($uri.Scheme -ne "https" -or $uri.Host -notlike "*.microsoft.com") {
+            throw "A URL precisa usar HTTPS e um dominio Microsoft."
+          }
+          Write-Host "URL HTTPS Microsoft validada; o endereco permanece oculto."
+
+      - name: Baixar ISO da Microsoft
+        shell: pwsh
+        env:
+          WINDOWS_ISO_URL: \${{ secrets.WINDOWS_ISO_URL }}
+        run: |
+          $iso = Join-Path $env:RUNNER_TEMP "Windows10-22H2-ptBR-x86.iso"
+          curl.exe --fail --location --silent --show-error --retry 3 --retry-delay 5 --connect-timeout 30 --output $iso $env:WINDOWS_ISO_URL
+          if ($LASTEXITCODE -ne 0) {
+            throw "Falha no download. O link Microsoft pode ter expirado; gere outro e atualize WINDOWS_ISO_URL."
+          }
+          Write-Host "Download concluido."
+
+      - name: Inventariar a edicao Home
+        shell: pwsh
+        run: |
+          $iso = Join-Path $env:RUNNER_TEMP "Windows10-22H2-ptBR-x86.iso"
+          $reports = Join-Path $env:RUNNER_TEMP "inventario-home"
+          ./scripts/03-inventariar-home.ps1 -IsoPath $iso -ReportDirectory $reports
+
+      - name: Publicar somente os relatorios
+        uses: actions/upload-artifact@v4
+        with:
+          name: inventario-detalhado-windows10-home-x86
+          path: \${{ runner.temp }}/inventario-home/
+          if-no-files-found: error
+          retention-days: 7
